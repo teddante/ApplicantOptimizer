@@ -112,7 +112,7 @@ def main():
     analysis = optimizer.analyze_gaps(profile, job_desc)
     
     # Generate outputs
-    generator = DocumentGenerator()
+    generator = DocumentGenerator(config['resume_generation'])
     if analysis['qualified']:
         generator.generate_resume(profile, analysis)
         generator.generate_cover_letter(profile, job_desc)
