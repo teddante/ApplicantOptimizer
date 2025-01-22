@@ -71,18 +71,23 @@ class ATSOptimizer:
         return json.loads(response.choices[0].message.content)
 
 class DocumentGenerator:
+    def __init__(self, config: Dict):
+        self.output_dir = config['resume_generation']['output_dir']
+        os.makedirs(self.output_dir, exist_ok=True)
+        os.chmod(self.output_dir, 0o755)
+
     def generate_resume(self, profile_data: Dict, optimization_data: Dict) -> str:
         """Generate ATS-optimized resume incorporating gap analysis"""
         # Implementation would use template engine with LLM-enhanced content
-        return "generated_resume.pdf"
+        return os.path.join(self.output_dir, "generated_resume.pdf")
     
     def generate_cover_letter(self, profile_data: Dict, job_desc: str) -> str:
         """Create targeted cover letter using LLM"""
-        return "cover_letter.docx"
+        return os.path.join(self.output_dir, "cover_letter.docx")
     
     def generate_improvement_plan(self, analysis: Dict) -> str:
         """Create actionable PDF improvement guide"""
-        return "improvement_plan.pdf"
+        return os.path.join(self.output_dir, "improvement_plan.pdf")
 
 def main():
     # Initialize core components

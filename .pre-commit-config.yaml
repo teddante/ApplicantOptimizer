@@ -1,0 +1,19 @@
+repos:
+-   repo: local
+    hooks:
+    -   id: prevent-env-commit
+        name: Block .env files
+        entry: Prevent commit of .env
+        language: python
+        stages: [commit]
+        files: \.env$
+-   repo: https://github.com/IBM/detect-secrets
+    rev: 1.4.0
+    hooks:
+    -   id: detect-secrets
+        args: [--baseline, .secrets.baseline]
+-   repo: https://github.com/PyCQA/bandit
+    rev: 1.7.7
+    hooks:
+    -   id: bandit
+        args: [-r, src/]

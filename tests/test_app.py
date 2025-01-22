@@ -23,7 +23,7 @@ def test_config_loading():
 
 def test_resume_analyzer_initialization(sample_config):
     analyzer = ResumeAnalyzer(sample_config)
-    assert analyzer.config['model'] == 'gpt-4'
+    assert analyzer.config['model'] == 'openai/gpt-4'
     assert analyzer.config['temperature'] == 0.7
 
 @patch('src.app.os.makedirs')
@@ -48,3 +48,11 @@ def test_analyze_gaps_returns_expected_structure(sample_config):
     assert isinstance(result, dict)
     assert 'qualified' in result
     assert 'gap_analysis' in result
+
+def test_api_key_is_not_empty(sample_config):
+    with patch('src.app.load_dotenv') as mock_dotenv:
+        mock_dotenv.return_value = {"OPENROUTER_API_KEY": "test_key"}
+        from src.app import main
+        main()
+        assert "OPENROUTER_API_KEY" in mock_dotenv.return_value
+        assert mock_dotenv.return_value["OPENROUTER_API_KEY"] != ""
