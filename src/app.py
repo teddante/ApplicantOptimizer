@@ -1,13 +1,22 @@
 import os
 import yaml
 import json
-from dotenv import load_dotenv
+from pathlib import Path
 from openai import OpenAI
 from typing import Dict, Any
+from .settings import Settings
 def load_config() -> Dict:
-    """Load application configuration from YAML file"""
-    with open("config.yaml") as f:
-        return yaml.safe_load(f)
+    """Load and validate application configuration"""
+    try:
+        with open(Settings().CONFIG_PATH) as f:
+            raw_config = yaml.safe_load(f)
+            return Settings().ConfigModel(**raw_config).model_dump()
+    except FileNotFoundError:
+        raise RuntimeError(f"Config file not found at {Settings().CONFIG_PATH}")
+    except ValidationError as e:
+        raise ValueError(f"Configuration error: {e.errors()}") from e
+    
+    return config
 
 
 class LinkedInParser:
@@ -15,15 +24,19 @@ class LinkedInParser:
         self.profile_path = profile_path
         
     def parse_profile(self) -> Dict[str, Any]:
-        """Parse LinkedIn profile JSON data"""
-        with open(self.profile_path) as f:
+        """Parse LinkedIn profile JSON data safely"""
+        from pathlib import Path
+        safe_path = Path(self.profile_path).resolve().relative_to(Path.cwd())
+        if not safe_path.is_file():
+            raise ValueError(f"Invalid profile path: {self.profile_path}")
+        with open(safe_path) as f:
             return json.load(f)
 
 class ATSOptimizer:
     def __init__(self, config: Dict):
         self.client = OpenAI(
             base_url="https://openrouter.ai/api/v1",
-            api_key=os.getenv("OPENROUTER_API_KEY"),
+            api_key=Settings().OPENROUTER_API_KEY.get_secret_value(),
             http_client=httpx.Client(
                 headers={
                     "HTTP-Referer": "https://github.com/ApplicantOptimizer",
@@ -80,7 +93,10 @@ def main():
     parser = LinkedInParser("input/linkedin_profile.json")
     profile = parser.parse_profile()
     
-    with open("input/job_description.txt") as f:
+    job_path = Path("input/job_description.txt").resolve().relative_to(Path.cwd())
+    if not job_path.is_file():
+        raise ValueError(f"Job description not found at {job_path}")
+    with open(job_path) as f:
         job_desc = f.read()
     
     # Perform analysis
