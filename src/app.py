@@ -5,6 +5,9 @@ from pathlib import Path
 from openai import OpenAI
 from typing import Dict, Any
 from .settings import Settings
+from pydantic import ValidationError
+import httpx
+from dotenv import load_dotenv
 def load_config() -> Dict:
     """Load and validate application configuration"""
     try:
