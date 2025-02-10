@@ -3,6 +3,7 @@ import yaml
 import json
 from pathlib import Path
 from openai import OpenAI
+from .llm_adapters import LLMAdapter, OpenRouterAdapter
 from typing import Dict, Any
 from .settings import Settings
 from pydantic import ValidationError
@@ -36,42 +37,35 @@ class LinkedInParser:
             return json.load(f)
 
 class ATSOptimizer:
-    def __init__(self, config: Dict):
-        self.client = OpenAI(
-            base_url="https://openrouter.ai/api/v1",
-            api_key=Settings().OPENROUTER_API_KEY.get_secret_value(),
-            http_client=httpx.Client(
-                headers={
-                    "HTTP-Referer": "https://github.com/ApplicantOptimizer",
-                    "X-Title": "Applicant Optimizer"
-                }
-            )
-        )
+    def __init__(self, config: Dict, adapter: LLMAdapter):
+        self.adapter = adapter
         self.analysis_config = config['resume_analysis']
         self.generation_config = config['resume_generation']
         
     def analyze_gaps(self, profile_data: Dict, job_desc: str) -> Dict:
-        """LLM-powered gap analysis with concrete improvement suggestions"""
-        system_msg = """You're an ATS optimization expert. Analyze the LinkedIn profile against 
-        the job description. Identify missing hard skills, insufficient experience durations, 
-        and keyword gaps. Format response with JSON containing: qualified(bool), 
+        """LLM-powered gap analysis with concrete improvement suggestions
+        Args:
+            profile_data: LinkedIn profile JSON data
+            job_desc: Job description text
+        Returns:
+            Dict: Analysis results with gap details and improvement plan
+        Raises:
+            AdapterError: If LLM analysis fails
+        """
+        system_msg = """You're an ATS optimization expert. Analyze the LinkedIn profile against
+        the job description. Identify missing hard skills, insufficient experience durations,
+        and keyword gaps. Format response with JSON containing: qualified(bool),
         gap_analysis(list), improvement_plan(list), and ats_score(0-100)."""
         
-        response = self.client.chat.completions.create(
-            model=self.analysis_config['model'],
-            messages=[{
-                "role": "system",
-                "content": system_msg
-            }, {
-                "role": "user",
-                "content": f"PROFILE: {json.dumps(profile_data)}\n\nJOB DESC: {job_desc}"
-            }],
-            temperature=self.analysis_config['temperature'],
-            max_tokens=self.analysis_config['max_tokens'],
-            response_format={"type": "json_object"}
-        )
-        
-        return json.loads(response.choices[0].message.content)
+        try:
+            response = self.adapter.analyze(
+                data={"profile": profile_data, "job_description": job_desc},
+                analysis_prompt=system_msg,
+                config=self.analysis_config
+            )
+            return response.content
+        except Exception as e:
+            raise RuntimeError(f"LLM analysis failed: {str(e)}") from e
 
 class DocumentGenerator:
     def __init__(self, config: Dict):
@@ -108,7 +102,7 @@ def main():
         job_desc = f.read()
     
     # Perform analysis
-    optimizer = ATSOptimizer(config)
+    optimizer = ATSOptimizer(config, OpenRouterAdapter())
     analysis = optimizer.analyze_gaps(profile, job_desc)
     
     # Generate outputs
